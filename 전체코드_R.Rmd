@@ -1,0 +1,379 @@
+---
+title: "culturedata_R"
+author: "JINHYEOK, KIM"
+date: "2023-07-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/culture_competition")
+```
+
+# library
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(data.table)
+library(magrittr)
+library(gmfd)
+library(dplyr)
+library(ggplot2)
+library(robCompositions)
+library(caret)
+library(plyr)
+library(stats)
+library(factoextra)
+library(magrittr)
+library(nsprcomp)
+library(pls)
+library(sf)
+library(SDPDmod)
+library(geosphere)
+```
+
+
+# 1. Preprocessing & EDA
+
+## 1) Variables
+
+```{r}
+data <- read.csv("데이터셋.csv", header=T, fileEncoding="cp949")
+```
+
+```{r}
+# 방문자수 증가율
+
+data["방문자수_증가율"] = data$X23.3월_방문자.수/data$X3월_방문자.수
+```
+
+계절별 트렌드 파생변수는 파이썬을 통해 생성
+
+```{r}
+# 언급 트렌드
+
+data["1월_언급트렌드"] = data$X23년1월검색량^2 / data$X22년1월검색량
+data["3월_언급트렌드"] = data$X23년3월검색량^2 / data$X22년3월검색량
+```
+
+```{r}
+data[order(data$'1월_언급트렌드',decreasing=TRUE),]
+# 충남 예산군의 1월 SNS 언급량은 타 지역에 비해 높지 않지만 언급트렌드 점수에서는 가장 높은 점수를 얻었음
+# 이는 기획서에 언급한 것처럼 백종원의 예산시장이 인기를 끌던 시점과 동일
+```
+
+
+# 2. Similarity
+
+## 2) Clustering
+
+### (1) 유형별 검색량 데이터 전처리
+```{r}
+data <- read.csv("유형별 검색량 트렌드_수정.csv", header=T, fileEncoding="cp949")
+
+data %<>%
+  subset(select = c(광역, 기초, 티맵카테고리중분류명, 유형.트렌드))
+
+data %<>%
+  spread(티맵카테고리중분류명, 유형.트렌드)
+
+data %<>% mutate_at(c(3:13), ~replace_na(.,0.0001))
+
+data_clus = data[-c(1,2)] %>% copy()
+scaled_data_clus <- scale(data_clus)
+
+normalize_row <- function(x) {
+  x / sum(x)
+}
+
+data_clus2 = t(apply(data_clus, 1, normalize_row))
+
+data_clus2 = cbind(data[,c(1,2)], data_clus2)
+
+data_clus3 = data_clus2 %>% copy()
+```
+
+유형별.검색량 데이터를 시군구별 검색총량으로 나눈 유형별 검색건수 비율 변수를 만들었음
+또한 이 비율만 갖고 도시를 분류한다면 음식, 숙박 등으로 모든 도시가 분류되기 때문에 전국 비율로 나눠줌으로써 '유형.트렌드'라는 변수를 생성함
+이는 전국 비율 대비 각 도시의 카테고리별 비율 특징을 정확히 파악할 수 있는 변수이기 때문에 각 카테고리의 유형.트렌드 값을 기준으로 도시를 클러스터링 하였음
+
+### (2) Compositional Data Clustering
+
+```{r}
+apply(data_clus3[,3:13],1, sum)
+ # 각 행의 합이 1이고 모든 값이 양수이므로 Compositional Data
+```
+
+```{r}
+X = data_clus3[,3:13]
+```
+
+```{r}
+rr <- clustCoDa(X, k=8, distMethod ="Aitchison", scale = "none", transformation="identity")
+plot(rr)
+plot(rr, normalized = TRUE, which.plot = "partMeans")
+```
+
+클러스터링은 비지도학습이기 때문에 성능을 측정하는 척도가 존재하지 않는다. 물론 실루엣 계수 등을 통해 같은 그룹 내 거리와 그룹 간 거리를 고려한 군집 개수를 찾을 수 있지만 이것이 항상 좋은 결과를 보장하진 않는다. 클러스터링의 목적은 해석이 큰 비중을 차지하기에 결국 분석가의 주관이 들어갈 수밖에 없다.
+또한 클러스터링 기법에 따라 군집이 달라지기에 여러 시도를 해보고 그중 가장 군집화가 잘 된 것을 선택해야 한다. 따라서 K-means, K-medoids, GMM, Hierchical Clustering 등 다양한 클러스터링을 시도해보았고 결과적으로 가장 군집화가 잘 됐다고 생각한 것을 최종 선택했다.
+
+### (3) 클러스터 EDA
+
+```{r}
+data = fread("유형 트렌드 compositionaldata.csv")
+```
+
+```{r warning = FALSE, message = FALSE}
+# 클러스터1
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 1) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터2
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 2) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터3
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 3) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터4
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 4) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터5
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 5) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터6
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 6) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터7
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 7) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터8
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 8) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+```
+
+
+
+# 3. Recommendation System
+
+## 1) Spatial Weight Matrix
+
+### (1) Spatial Data
+
+```{r}
+ger <- st_read("sig.shp", options = 'ENCODING=CP949')
+
+# filter rows with comma in "SIG_ENG_NM"
+ger_with_comma <- ger %>%
+  filter(str_detect(SIG_ENG_NM, ","))
+
+# extract city name after comma
+ger_with_comma$city <- str_trim(str_extract(ger_with_comma$SIG_ENG_NM, ",.*$"))
+
+for (i in 1:length(unique(ger_with_comma))) {
+  geo = ger_with_comma[ger_with_comma$city==unique(ger_with_comma$city)[i],4]
+  comb = st_union(geo[1,], geo[2,])
+  if (length(geo)>=3) {
+      for (j in 1:length(geo)-1) {
+        comb = st_union(geo[j,],geo[j+1,])
+        }
+  }
+  ger_with_comma[ger_with_comma$city==unique(ger_with_comma$city)[i],4] = comb
+}
+
+ger_with_comma = ger_with_comma %>% distinct(city, .keep_all = TRUE)
+ger_with_comma = ger_with_comma %>% select(-city)
+
+# create a new dataframe without comma in "SIG_ENG_NM"
+ger_without_comma <- ger %>%
+  filter(!str_detect(SIG_ENG_NM, ","))
+
+ger_final <- bind_rows(ger_without_comma, ger_with_comma)
+
+ger_final = ger_final[!ger_final$SIG_ENG_NM=='Sejong-si',]
+
+ger_final$province = 0
+ger_final %>% head()
+
+sig = data.frame(SIG = c(11,26,27,28,29,30,31,41,42,43,44,45,46,47,48,50),
+                 광역 = c("서울","부산","대구","인천","광주", "대전","울산","경기","강원","충북","충남","전북","전남","경북", "경남", "제주"))
+
+SIG = ger_final$SIG_CD %>% substr(1, 2) %>% as.double()
+
+for (i in 1:length(SIG)){
+  ger_final[i,5] = sig[SIG[i]==sig[,1],2]
+}
+ger_final[1,]
+
+ger_final = ger_final[order(ger_final$province, ger_final$SIG_KOR_NM),]
+rownames(ger_final) = NULL
+ger_final = ger_final %>% select(-province)
+```
+
+### (2) Spatial Weight
+
+```{r}
+#boundary length
+W_len_sh <- SharedBMat(ger_final)
+
+#x,y 좌표들의 하버사인 거리가 값이 되는 289x289 matrix 만들기 
+
+dt <- read.csv("국내도시_좌표.csv", fileEncoding = "euc-kr")
+
+
+# 하버사인 거리 계산 함수 
+haversine_distance <- function(lat1, lon1, lat2, lon2) {
+  R <- 6371  # Radius of the Earth in km
+  phi1 <- deg2rad(lat1)
+  phi2 <- deg2rad(lat2)
+  delta_phi <- deg2rad(lat2 - lat1)
+  delta_lambda <- deg2rad(lon2 - lon1)
+  
+  a <- sin(delta_phi/2)^2 + cos(phi1) * cos(phi2) * sin(delta_lambda/2)^2
+  c <- 2 * atan2(sqrt(a), sqrt(1-a))
+  
+  distance <- R * c
+  return(distance)
+}
+
+deg2rad <- function(degrees) {
+  return(degrees * pi / 180)
+}
+
+# 빈 매트릭스 생성  
+n <- nrow(dt)
+distance_matrix <- matrix(0, n, n)
+
+#행, 열 이름 
+row.names(distance_matrix) <- dt$도시
+colnames(distance_matrix) <- dt$도시
+
+#각 도시 하버사인 거리 계산 
+for (i in 1:n) {
+  for (j in 1:n) {
+    distance_matrix[i, j] <- haversine_distance(dt$x[i], dt$y[i], dt$x[j], dt$y[j])
+  }
+}
+
+```
+
+```{r}
+#Power distance weights
+W_inv1 <- InvDistMat(distMat = distance_matrix, powr = 2) 
+W_inv1 %>% str()
+
+weight = data.frame()
+
+for (i in 1:nrow(W_inv1)) {
+  a = sum(W_inv1[i,-i]*W_len_sh[i,-i])
+  for (j in 1:nrow(W_len_sh)) {
+    weight[i,j] = (W_len_sh[i,j]*W_inv1[i,j]) / a
+  }
+}
+
+weight[is.na(weight)]=0
+
+weight = weight / 10
+
+iden = diag(1,228,228)
+weight = weight + iden
+```
+
+```{r}
+# 최종적으로 Distance & Boundary 동시 고려한 weight
+W_inv2 <- InvDistMat(distMat = distance_matrix, distCutOff = 100, powr = 2)
+
+weight2 = copy(weight)
+weight2 = weight2 + W_inv2/3
+
+weight2 %>% head()
+```
+
+## 3) Target Score
+
+관광 제언이 필요한 도시 선정 위한 Target Score 계산
+
+```{r}
+data <- read.csv("타겟도시.csv", header=T, fileEncoding="cp949")
+data[,4] = sqrt(data[,4])
+```
+
+```{r}
+score = mahalanobis(data[,c(3,4)], c(0,0), cov(data[,c(3,4)]))
+data = cbind(data, score=score)
+data[order(data$score,decreasing=TRUE),]
+```
+
+```{r}
+barplot(data[order(data$score,decreasing=TRUE),][,5], names.arg = data[order(data$score,decreasing=TRUE),][,2], col = "lightblue")
+```
+
+
