@@ -1,0 +1,364 @@
+---
+title: "EDA"
+output: html_document
+date: "2023-04-29"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/culture_competition")
+```
+
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(data.table)
+```
+
+```{r}
+data <- read.csv("데이터셋_v6.csv", header=T, fileEncoding="cp949")
+```
+
+```{r}
+str(data)
+data
+```
+
+```{r}
+data %>%
+  ggplot(aes(x=as.factor(광역지자체명), fill=as.factor(광역지자체명)))+
+  geom_bar()+
+  facet_wrap(~as.factor(카테고리))+
+  theme_bw()+
+  xlab('광역지자체')+ylab("")+labs(fill="광역지자체")+ coord_flip()
+```
+```{r}
+data %>%
+  gather(key='월', value='방문자', c(`X1월.기초지자체.방문자.수`:`X12월.기초지자체.방문자.수`)) -> dat
+```
+
+```{r}
+head(dat)
+```
+
+```{r}
+dat[dat$월=="1월 기초지자체 방문자 수",25] <- 1
+dat[dat$월=="2월 기초지자체 방문자 수",25] <- 2
+dat[dat$월=="3월 기초지자체 방문자 수",25] <- 3
+dat[dat$월=="4월 기초지자체 방문자 수",25] <- 4
+dat[dat$월=="5월 기초지자체 방문자 수",25] <- 5
+dat[dat$월=="6월 기초지자체 방문자 수",25] <- 6
+dat[dat$월=="7월 기초지자체 방문자 수",25] <- 7
+dat[dat$월=="8월 기초지자체 방문자 수",25] <- 8
+dat[dat$월=="9월 기초지자체 방문자 수",25] <- 9
+dat[dat$월=="10월 기초지자체 방문자 수",25] <- 10
+dat[dat$월=="11월 기초지자체 방문자 수",25] <- 11
+dat[dat$월=="12월 기초지자체 방문자 수",25] <- 12
+```
+
+```{r}
+dat
+```
+
+```{r}
+dat$월 <- as.factor(dat$월)
+levels(dat$월) <- c("1월 기초지자체 방문자 수", "2월 기초지자체 방문자 수", "3월 기초지자체 방문자 수", "4월 기초지자체 방문자 수", "5월 기초지자체 방문자 수", "6월 기초지자체 방문자 수", "7월 기초지자체 방문자 수", "8월 기초지자체 방문자 수", "9월 기초지자체 방문자 수", "10월 기초지자체 방문자 수", "11월 기초지자체 방문자 수", "12월 기초지자체 방문자 수")
+```
+
+```{r}
+levels(dat$월) 
+```
+
+
+```{r}
+dat %>%
+  ggplot(aes(x=월, y=방문자, fill=카테고리))+
+  geom_bar(stat="identity")+
+  scale_x_discrete(label = c("1", "2", "3","4", "5", "6", "7", "8", "9", "10", "11", "12"))+
+  theme_bw()
+```
+
+```{r}
+동반자유형 = c()
+for (i in 1:nrow(data))
+{
+  a <- names(which.max(data[i, 7:11]))
+  동반자유형 = c(동반자유형, a)
+}
+
+data$동반자 <- 동반자유형
+```
+
+```{r}
+data %>%
+  ggplot(aes(x=동반자, fill=동반자))+
+  geom_bar()+
+  facet_wrap(~as.factor(카테고리))+
+  theme_bw()+
+  scale_x_discrete(label = c("가족","싱글","연인","친구","회사동료")) +
+  scale_fill_discrete(label = c("가족","싱글","연인","친구","회사동료"))
+```
+
+
+## 카테고리에 따른 거리 density plot
+```{r}
+data %>%
+  ggplot(aes(x=거리, color=카테고리))+
+  geom_density()+
+  facet_wrap(~as.factor(카테고리))+
+  theme_bw()+theme(legend.position = 'none')
+```
+
+## 방문자 유형에 따른 거리 density plot
+```{r}
+data %>%
+  ggplot(aes(x=거리, color=동반자))+
+  geom_density()+
+  facet_wrap(~동반자)+
+  theme_bw()+theme(legend.position = 'none')
+```
+
+## 카테고리별 월별 추이
+```{r}
+avg_data <- dat %>%
+  group_by(카테고리, 월) %>%
+  summarise(avg_visitor_number = mean(방문자, na.rm = TRUE))
+
+# Now create the line plot using ggplot2
+ggplot(avg_data, aes(x = 월, y = avg_visitor_number, group = 카테고리, color = 카테고리)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Average Visitor Number per Category by Month",
+       x = "Month",
+       y = "Average Visitor Number") +
+  theme_bw() +
+  scale_x_discrete(label = c("1", "2", "3","4", "5", "6", "7", "8", "9", "10", "11", "12")) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank())
+```
+
+## 카테고리별 월별 추이
+```{r}
+# Assuming your data is in a data frame called 'my_data'
+# with columns: category, month, and visitor_number
+
+# First, calculate the average visitor number per category and month
+avg_data <- dat %>%
+  group_by(카테고리, 월) %>%
+  summarise(avg_visitor_number = mean(방문자, na.rm = TRUE))
+
+# Now create the line plot using ggplot2 with facet_wrap
+ggplot(avg_data, aes(x = 월, y = avg_visitor_number, group = 카테고리, color = 카테고리)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Average Visitor Number per Category by Month",
+       x = "Month",
+       y = "Average Visitor Number") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  scale_x_discrete(label = c("1", "2", "3","4", "5", "6", "7", "8", "9", "10", "11", "12"))+
+  facet_wrap(~카테고리, nrow = 4, scales = "free_y") # Add facet_wrap with 4 rows and free y-axis scales
+```
+
+## 카테고리별 방문자수
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=동반유형)) +
+  geom_bar(stat="identity")+
+  theme_bw()
+```
+
+## 카테고리에 따른 동반유형별 방문자수
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  ggplot(aes(x=동반유형, y=방문자수, fill=동반유형)) +
+  geom_bar(stat="identity")+
+  theme_bw() +
+  facet_wrap(~카테고리)
+```
+
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  ggplot(aes(x=동반유형, y=방문자수, fill=동반유형)) +
+  geom_bar(stat="identity")+
+  theme_bw() + theme(legend.position = "none")
+```
+
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  ggplot(aes(x=동반유형, y=방문자수, fill=동반유형)) +
+  geom_bar(stat="identity")+
+  theme_bw() + theme(legend.position = "none")
+```
+
+
+## 동반유형에 따른 카테고리별 방문자수
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  filter(동반유형=="가족_동반") %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  filter(동반유형=="연인_동반") %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  filter(동반유형=="싱글_동반") %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  filter(동반유형=="친구_동반") %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+```{r}
+data %>%
+  select(광역지자체명,기초지자체명, 카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  filter(동반유형=="회사동료_동반") %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+## 카테고리별 지자체 방문자수
+```{r}
+dat %>%
+  filter(카테고리=='기타') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='레저스포츠') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='데이트코스') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='음식') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='숙박') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='자연(바다)') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='자연(산,공원)') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='문화관광') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='체험관광') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='역사관광') %>%
+  ggplot(aes(x=기초지자체명, y=방문자, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+```{r}
+dat %>%
+  filter(카테고리=='음식') %>%
+  ggplot(aes(x=기초지자체명, y=`3월 트렌드비율`, fill=기초지자체명))+
+  geom_bar(stat="identity") + 
+  coord_flip()+theme_bw()+theme(legend.position = 'none')
+```
+
+## 카테고리별 23-3월 방문자수 평균
+```{r}
+data %>%
+  ggplot(aes(x=카테고리, y=mean(`23-3월 기초지자체 방문자 수`), fill=카테고리)) +
+  geom_bar(stat="identity") +
+  ylab("23-3월 방문자 수의 평균")+theme(legend.position = "none")
+```
+```{r}
+data %>%
+  ggplot(aes(x=카테고리, y=`언급량 증가율(22년 대비)`, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  coord_flip()+theme_bw()+theme(legend.position = "none")
+```
+```{r}
+data %>%
+  select(카테고리, 가족_동반,연인_동반,싱글_동반,친구_동반,회사동료_동반)%>%
+  gather(key="동반유형", value="방문자수", c(가족_동반:회사동료_동반)) %>%
+  ggplot(aes(x=카테고리, y=방문자수, fill=카테고리)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~동반유형)+
+  theme_bw()+
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+
+
+

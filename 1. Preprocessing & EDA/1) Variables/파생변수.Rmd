@@ -1,0 +1,38 @@
+---
+title: "파생변수"
+author: "JINHYEOK, KIM"
+date: "2023-07-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/culture_competition")
+```
+
+```{r}
+data <- read.csv("데이터셋.csv", header=T, fileEncoding="cp949")
+```
+
+
+# 방문자수 증가율
+
+```{r}
+data["방문자수_증가율"] = data$X23.3월_방문자.수/data$X3월_방문자.수
+```
+
+계절별 트렌드 파생변수는 파이썬을 통해 생성
+
+# 언급 트렌드
+
+```{r}
+data["1월_언급트렌드"] = data$X23년1월검색량^2 / data$X22년1월검색량
+data["3월_언급트렌드"] = data$X23년3월검색량^2 / data$X22년3월검색량
+```
+
+```{r}
+data[order(data$'1월_언급트렌드',decreasing=TRUE),]
+# 충남 예산군의 1월 SNS 언급량은 타 지역에 비해 높지 않지만 언급트렌드 점수에서는 가장 높은 점수를 얻었음
+# 이는 기획서에 언급한 것처럼 백종원의 예산시장이 인기를 끌던 시점과 동일
+```
+
