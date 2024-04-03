@@ -1,0 +1,184 @@
+---
+title: "spatial_matrix"
+author: "JINHYEOK, KIM"
+date: "2023-05-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## library
+
+```{r, message=F}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(ggplot2)
+library(sf)
+library(SDPDmod)
+library(geosphere)
+```
+
+```{r}
+ger <- st_read("sig.shp", options = 'ENCODING=CP949')
+ger
+```
+
+```{r}
+# filter rows with comma in "SIG_ENG_NM"
+ger_with_comma <- ger %>%
+  filter(str_detect(SIG_ENG_NM, ","))
+
+# extract city name after comma
+ger_with_comma$city <- str_trim(str_extract(ger_with_comma$SIG_ENG_NM, ",.*$"))
+
+for (i in 1:length(unique(ger_with_comma))) {
+  geo = ger_with_comma[ger_with_comma$city==unique(ger_with_comma$city)[i],4]
+  comb = st_union(geo[1,], geo[2,])
+  if (length(geo)>=3) {
+      for (j in 1:length(geo)-1) {
+        comb = st_union(geo[j,],geo[j+1,])
+        }
+  }
+  ger_with_comma[ger_with_comma$city==unique(ger_with_comma$city)[i],4] = comb
+}
+
+ger_with_comma = ger_with_comma %>% distinct(city, .keep_all = TRUE)
+ger_with_comma = ger_with_comma %>% select(-city)
+```
+
+
+```{r}
+# create a new dataframe without comma in "SIG_ENG_NM"
+ger_without_comma <- ger %>%
+  filter(!str_detect(SIG_ENG_NM, ","))
+
+ger_final <- bind_rows(ger_without_comma, ger_with_comma)
+
+ger_final = ger_final[!ger_final$SIG_ENG_NM=='Sejong-si',]
+```
+
+```{r}
+ger_final$province = 0
+ger_final
+```
+
+```{r}
+sig = data.frame(SIG = c(11,26,27,28,29,30,31,41,42,43,44,45,46,47,48,50),
+                 광역 = c("서울","부산","대구","인천","광주", "대전","울산","경기","강원","충북","충남","전북","전남","경북", "경남", "제주"))
+sig
+```
+
+
+```{r}
+SIG = ger_final$SIG_CD %>% substr(1, 2) %>% as.double()
+```
+
+```{r}
+for (i in 1:length(SIG)){
+  ger_final[i,5] = sig[SIG[i]==sig[,1],2]
+}
+ger_final[1,]
+```
+
+```{r}
+ger_final = ger_final[order(ger_final$province, ger_final$SIG_KOR_NM),]
+rownames(ger_final) = NULL
+ger_final = ger_final %>% select(-province)
+```
+
+
+```{r}
+W_len_first = SharedBMat(ger)
+W_len_first[120,]
+```
+
+
+```{r}
+#boundary length
+W_len_sh <- SharedBMat(ger_final)
+W_len_sh %>% str()
+```
+
+```{r}
+#x,y 좌표들의 하버사인 거리가 값이 되는 289x289 matrix 만들기 
+
+dt <- read.csv("국내도시_좌표.csv", fileEncoding = "euc-kr")
+
+
+# 하버사인 거리 계산 함수 
+haversine_distance <- function(lat1, lon1, lat2, lon2) {
+  R <- 6371  # Radius of the Earth in km
+  phi1 <- deg2rad(lat1)
+  phi2 <- deg2rad(lat2)
+  delta_phi <- deg2rad(lat2 - lat1)
+  delta_lambda <- deg2rad(lon2 - lon1)
+  
+  a <- sin(delta_phi/2)^2 + cos(phi1) * cos(phi2) * sin(delta_lambda/2)^2
+  c <- 2 * atan2(sqrt(a), sqrt(1-a))
+  
+  distance <- R * c
+  return(distance)
+}
+
+deg2rad <- function(degrees) {
+  return(degrees * pi / 180)
+}
+
+# 빈 매트릭스 생성  
+n <- nrow(dt)
+distance_matrix <- matrix(0, n, n)
+
+#행, 열 이름 
+row.names(distance_matrix) <- dt$도시
+colnames(distance_matrix) <- dt$도시
+
+#각 도시 하버사인 거리 계산 
+for (i in 1:n) {
+  for (j in 1:n) {
+    distance_matrix[i, j] <- haversine_distance(dt$x[i], dt$y[i], dt$x[j], dt$y[j])
+  }
+}
+
+```
+
+
+```{r}
+#Power distance weights
+W_inv1 <- InvDistMat(distMat = distance_matrix, powr = 2) 
+W_inv1 %>% str()
+```
+
+```{r}
+weight = data.frame()
+
+for (i in 1:nrow(W_inv1)) {
+  a = sum(W_inv1[i,-i]*W_len_sh[i,-i])
+  for (j in 1:nrow(W_len_sh)) {
+    weight[i,j] = (W_len_sh[i,j]*W_inv1[i,j]) / a
+  }
+}
+
+weight[is.na(weight)]=0
+
+weight = weight / 10
+
+iden = diag(1,228,228)
+weight = weight + iden
+```
+
+```{r}
+#Distance & Boundary 동시 고려 weight
+W_inv2 <- InvDistMat(distMat = distance_matrix, distCutOff = 100, powr = 2)
+
+weight2 = copy(weight)
+weight2 = weight2 + W_inv2/3
+```
+
+```{r}
+write.csv(weight2, file = "공간가중행렬_distance.csv", fileEncoding = "cp949",row.names = FALSE)
+```
+

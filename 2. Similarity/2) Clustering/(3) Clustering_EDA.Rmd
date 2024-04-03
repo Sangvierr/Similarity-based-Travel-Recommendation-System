@@ -1,0 +1,124 @@
+---
+title: "Clustering_EDA"
+author: "JINHYEOK, KIM"
+date: "2023-07-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/culture_competition")
+```
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+```
+
+```{r}
+data = fread("유형 트렌드 compositionaldata.csv")
+```
+
+```{r warning = FALSE, message = FALSE}
+# 클러스터1
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 1) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터2
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 2) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터3
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 3) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터4
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 4) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터5
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 5) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터6
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 6) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터7
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 7) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+
+# 클러스터8
+data %>%
+  gather(key="기존분류", value="비율", c(기타:체험관광)) %>%
+  group_by(cluster, 기존분류) %>%
+  summarise(비율_mean = mean(비율)) %>%
+  filter(cluster == 8) %>%
+  ggplot(aes(x = 기존분류, y = 비율_mean, fill = 기존분류)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  ylab("평균 비율") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position = "none")
+```
+
+
+
+
+

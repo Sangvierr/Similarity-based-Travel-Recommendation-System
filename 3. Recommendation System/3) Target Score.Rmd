@@ -1,0 +1,36 @@
+---
+title: "Target Score"
+author: "JINHYEOK, KIM"
+date: "2023-07-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning = FALSE, message = FALSE}
+library(dplyr)
+library(tidyverse)
+library(data.table)
+```
+
+
+```{r}
+data <- read.csv("타겟도시.csv", header=T, fileEncoding="cp949")
+data[,4] = sqrt(data[,4])
+data
+```
+
+
+```{r}
+score = mahalanobis(data[,c(3,4)], c(0,0), cov(data[,c(3,4)]))
+data = cbind(data, score=score)
+data[order(data$score,decreasing=TRUE),]
+```
+
+```{r}
+barplot(data[order(data$score,decreasing=TRUE),][,5], names.arg = data[order(data$score,decreasing=TRUE),][,2], col = "lightblue")
+```
+
+

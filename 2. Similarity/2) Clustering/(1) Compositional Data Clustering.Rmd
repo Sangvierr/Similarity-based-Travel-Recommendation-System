@@ -1,0 +1,87 @@
+---
+title: "Clustering"
+author: "JINHYEOK, KIM"
+date: "2023-07-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/culture_competition")
+```
+
+
+### 필요한 library
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(data.table)
+library(magrittr)
+library(gmfd)
+library(dplyr)
+library(ggplot2)
+library(robCompositions)
+library(caret)
+library(plyr)
+library(stats)
+library(MASS)
+library(factoextra)
+library(magrittr)
+library(nsprcomp)
+library(pls)
+```
+
+# 1. 데이터 전처리 (유형별 검색량 데이터)
+```{r}
+data <- read.csv("유형별 검색량 트렌드_수정.csv", header=T, fileEncoding="cp949")
+
+data %<>%
+  subset(select = c(광역, 기초, 티맵카테고리중분류명, 유형.트렌드))
+
+data %<>%
+  spread(티맵카테고리중분류명, 유형.트렌드)
+
+data %<>% mutate_at(c(3:13), ~replace_na(.,0.0001))
+
+data_clus = data[-c(1,2)] %>% copy()
+scaled_data_clus <- scale(data_clus)
+
+normalize_row <- function(x) {
+  x / sum(x)
+}
+
+data_clus2 = t(apply(data_clus, 1, normalize_row))
+
+data_clus2 = cbind(data[,c(1,2)], data_clus2)
+
+data_clus3 = data_clus2 %>% copy()
+```
+
+유형별.검색량 데이터를 시군구별 검색총량으로 나눈 유형별 검색건수 비율 변수를 만들었음
+또한 이 비율만 갖고 도시를 분류한다면 음식, 숙박 등으로 모든 도시가 분류되기 때문에 전국 비율로 나눠줌으로써 '유형.트렌드'라는 변수를 생성함
+이는 전국 비율 대비 각 도시의 카테고리별 비율 특징을 정확히 파악할 수 있는 변수이기 때문에 각 카테고리의 유형.트렌드 값을 기준으로 도시를 클러스터링 하였음
+
+```{r}
+data_clus3
+```
+
+# 2. Compositional Data Clustering
+
+```{r}
+apply(data_clus3[,3:13],1, sum)
+ # 각 행의 합이 1이고 모든 값이 양수이므로 Compositional Data
+```
+
+```{r}
+X = data_clus3[,3:13]
+X
+```
+
+```{r}
+rr <- clustCoDa(X, k=8, distMethod ="Aitchison", scale = "none", transformation="identity")
+plot(rr)
+plot(rr, normalized = TRUE, which.plot = "partMeans")
+```
+
+클러스터링은 비지도학습이기 때문에 성능을 측정하는 척도가 존재하지 않는다. 물론 실루엣 계수 등을 통해 같은 그룹 내 거리와 그룹 간 거리를 고려한 군집 개수를 찾을 수 있지만 이것이 항상 좋은 결과를 보장하진 않는다. 클러스터링의 목적은 해석이 큰 비중을 차지하기에 결국 분석가의 주관이 들어갈 수밖에 없다.
+또한 클러스터링 기법에 따라 군집이 달라지기에 여러 시도를 해보고 그중 가장 군집화가 잘 된 것을 선택해야 한다. 따라서 K-means, K-medoids, GMM, Hierchical Clustering 등 다양한 클러스터링을 시도해보았고 결과적으로 가장 군집화가 잘 됐다고 생각한 것을 최종 선택했다.
+
