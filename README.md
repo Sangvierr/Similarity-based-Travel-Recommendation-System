@@ -1,10 +1,9 @@
 # 제11회 문화데이터 활용 경진대회
+K-관광 활성화를 위한 국내외 도시 유사도 분석 및 여행지 추천
+: Similarity-based-Travel-Recommendation-System
 
 #### 🏆 제 11회 문화데이터 활용 경진대회 최우수상 수상 
 #### 🏆 2023 한국관광 데이터랩 우수사례 공모전 우수상 수상
-
-K-관광 활성화를 위한 국내외 도시 유사도 분석 및 여행지 추천
-: Similarity-based-Travel-Recommendation-System
 
 1. Preprocessing & EDA
 - 개괄 : 2022년 데이터를 기준으로 데이터 전처리 진행
